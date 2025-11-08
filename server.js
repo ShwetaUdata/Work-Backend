@@ -10,7 +10,7 @@ app.use(express.json());
 app.use(cors({
   origin: [
     "http://localhost:3000", // for local dev
-    "https://your-frontend-name.vercel.app" // replace with your actual deployed frontend URL
+    "https://https://work-frontend-ror6.vercel.app/" // replace with your actual deployed frontend URL
   ],
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true

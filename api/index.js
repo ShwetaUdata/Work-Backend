@@ -1,15 +1,15 @@
-
 const express = require("express");
 const sqlite3 = require("sqlite3");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
+const serverless = require("serverless-http");
 
 const app = express();
 app.use(express.json());
 app.use(cors({
   origin: [
     "http://localhost:3000",
-  "https://work-frontend-ror6.vercel.app"// replace with your actual deployed frontend URL
+    "https://work-frontend-ror6.vercel.app"
   ],
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
@@ -23,52 +23,47 @@ const hashPassword = (plain) => bcrypt.hashSync(plain, 10);
 
 // ----- Create Tables & Default Users -----
 db.serialize(() => {
-  // Users table
   db.run(`CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT UNIQUE,
-  password TEXT,
-  role TEXT,
-  name TEXT,
-  type TEXT DEFAULT 'software'
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    password TEXT,
+    role TEXT,
+    name TEXT,
+    type TEXT DEFAULT 'software'
   )`);
 
-  // Add this after opening the database and before inserting users
-db.run(`ALTER TABLE users ADD COLUMN type TEXT DEFAULT 'software'`, (err) => {
-  if (err) {
-    console.log("Column 'type' may already exist:", err.message);
-  } else {
-    console.log("Column 'type' added to 'users' table.");
-  }
-});
+  const stmt = db.prepare(
+    "INSERT OR REPLACE INTO users (username, password, role, name, type) VALUES (?, ?, ?, ?, ?)"
+  );
+  stmt.run("alice", hashPassword("123"), "employee", "Alice Smith", "software");
+  stmt.run("admin", hashPassword("admin"), "admin", "John Admin", "software");
+  stmt.finalize();
 
-const stmt = db.prepare(
-  "INSERT OR REPLACE INTO users (username, password, role, name, type) VALUES (?, ?, ?, ?, ?)"
-);
-stmt.run("alice", hashPassword("123"), "employee", "Alice Smith", "software");
-stmt.run("admin", hashPassword("admin"), "admin", "John Admin", "software");
-
-stmt.finalize();
-
-
-  // Work updates table
   db.run(`CREATE TABLE IF NOT EXISTS work_updates (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT,
-  name TEXT,
-  userType TEXT,
-  date TEXT,
-  projectType TEXT,
-  projectName TEXT,
-  workDone TEXT,
-  task TEXT,
-  helpTaken TEXT,
-  status TEXT,
-  timestamp TEXT
-)`);
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT,
+    name TEXT,
+    userType TEXT,
+    date TEXT,
+    projectType TEXT,
+    projectName TEXT,
+    workDone TEXT,
+    task TEXT,
+    helpTaken TEXT,
+    status TEXT,
+    timestamp TEXT
+  )`);
 });
 
-app.post("/api/login", (req, res) => {
+// ----- ROUTES -----
+
+// Root route
+app.get("/", (req, res) => {
+  res.send("✅ Work Backend is running successfully on Vercel!");
+});
+
+// Login
+app.post("/login", (req, res) => {
   const { username, password } = req.body;
 
   db.get("SELECT * FROM users WHERE username = ?", [username], (err, row) => {
@@ -86,7 +81,6 @@ app.post("/api/login", (req, res) => {
         });
       });
     } else {
-      // New user → no type yet
       const name = username.charAt(0).toUpperCase() + username.slice(1);
       bcrypt.hash(password, 10, (err, hashedPassword) => {
         if (err) return res.status(500).json({ error: "Error hashing password" });
@@ -110,28 +104,13 @@ app.post("/api/login", (req, res) => {
 });
 
 // Add work update
-// app.post("/api/work-update", (req, res) => {
-//   const { username, name, userType, date, projectType, projectName, workDone, task, helpTaken, status } = req.body;
-//   const timestamp = new Date().toISOString();
-
-//   const stmt = db.prepare(`INSERT INTO work_updates
-//     (username, name, userType, date, projectType, projectName, workDone, task, helpTaken, status, timestamp)
-//     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-
-//   stmt.run(username, name, userType, date, projectType, projectName, workDone, task, helpTaken, status, timestamp, function(err) {
-//     if (err) return res.status(500).json({ error: err.message });
-//     res.json({ success: true, id: this.lastID });
-//   });
-// });
-
-app.post("/api/work-update", (req, res) => {
+app.post("/work-update", (req, res) => {
   const { username, name, projectType, projectName, workDone, task, helpTaken, status } = req.body;
   const timestamp = new Date().toISOString();
 
-  // Get the user type from users table
   db.get("SELECT type FROM users WHERE username = ?", [username], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
-    const userType = row?.type || "software"; // fallback
+    const userType = row?.type || "software";
 
     const stmt = db.prepare(`INSERT INTO work_updates
       (username, name, userType, date, projectType, projectName, workDone, task, helpTaken, status, timestamp)
@@ -144,9 +123,8 @@ app.post("/api/work-update", (req, res) => {
   });
 });
 
-
-// Get all work updates for a user
-app.get("/api/work-updates/:username", (req, res) => {
+// Get work updates by username
+app.get("/work-updates/:username", (req, res) => {
   const username = req.params.username;
   db.all("SELECT * FROM work_updates WHERE username = ? ORDER BY timestamp DESC", [username], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -154,68 +132,25 @@ app.get("/api/work-updates/:username", (req, res) => {
   });
 });
 
-// app.put("/api/set-type/:username", (req, res) => {
-//   const { username } = req.params;
-//   const { type } = req.body;
-
-//   if (!["software", "hardware"].includes(type)) {
-//     return res.status(400).json({ error: "Invalid type" });
-//   }
-
-//   db.run(
-//     "UPDATE users SET type = ? WHERE username = ?",
-//     [type, username],
-//     function (err) {
-//       if (err) return res.status(500).json({ error: err.message });
-//       if (this.changes === 0) return res.status(404).json({ error: "User not found" });
-
-//       res.json({ success: true, type });
-//     }
-//   );
-// });
-app.put("/api/set-role/:username", (req, res) => {
-  const { username } = req.params;
-  const { role } = req.body;
-
-  if (!["admin", "employee"].includes(role)) {
-    return res.status(400).json({ error: "Invalid role" });
-  }
-
-  db.run("UPDATE users SET role = ? WHERE username = ?", [role, username], function(err) {
+// Delete update
+app.delete("/work-update/:id", (req, res) => {
+  const { id } = req.params;
+  db.run("DELETE FROM work_updates WHERE id = ?", [id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
-    if (this.changes === 0) return res.status(404).json({ error: "User not found" });
-
-    res.json({ success: true, role });
+    if (this.changes === 0) return res.status(404).json({ error: "Not found" });
+    res.json({ success: true, message: "Deleted successfully" });
   });
 });
 
-
-
-// server.js
-app.delete("/api/work-update/:id", async (req, res) => {
-  const { id } = req.params;
-  try {
-    const stmt = db.prepare("DELETE FROM work_updates WHERE id = ?");
-    stmt.run(id, function (err) {
-      if (err) return res.status(500).json({ success: false, message: err.message });
-      if (this.changes === 0) return res.status(404).json({ success: false, message: "Update not found" });
-      res.json({ success: true, message: "Deleted successfully" });
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-
-// Admin-only endpoints
-app.get("/api/all-work-updates", (req, res) => {
+// Admin
+app.get("/all-work-updates", (req, res) => {
   db.all("SELECT * FROM work_updates ORDER BY timestamp DESC", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
 });
 
-app.get("/api/all-users", (req, res) => {
+app.get("/all-users", (req, res) => {
   db.all("SELECT username, name, role, type FROM users ORDER BY name ASC", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
@@ -223,10 +158,10 @@ app.get("/api/all-users", (req, res) => {
 });
 
 // Health check
-app.get("/.well-known/appspecific/com.chrome.devtools.json", (req, res) => {
+app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-// ----- Start Server -----
-const PORT = process.env.PORT || 5000;
+// ----- Export for Vercel -----
 module.exports = app;
+module.exports.handler = serverless(app);

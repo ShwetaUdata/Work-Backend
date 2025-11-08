@@ -7,7 +7,14 @@ import bcrypt from "bcrypt";
 
 const app = express();
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:3000", // for local dev
+    "https://your-frontend-name.vercel.app" // replace with your actual deployed frontend URL
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
 
 // ----- SQLite Database -----
 const db = new sqlite3.Database("./database.db", (err) => {

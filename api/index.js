@@ -15,6 +15,11 @@ app.use(cors({
   credentials: true
 }));
 
+// Root test route
+app.get("/", (req, res) => {
+  res.send("✅ Work Backend deployed successfully on Vercel!");
+});
+
 // ----- SQLite Database -----
 const db = new sqlite3.Database(':memory:');
 
@@ -57,15 +62,9 @@ db.serialize(() => {
 
 // ----- ROUTES -----
 
-// Root route
-app.get("/", (req, res) => {
-  res.send("✅ Work Backend is running successfully on Vercel!");
-});
-
 // Login
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
-
   db.get("SELECT * FROM users WHERE username = ?", [username], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
 
@@ -105,7 +104,7 @@ app.post("/login", (req, res) => {
 
 // Add work update
 app.post("/work-update", (req, res) => {
-  const { username, name, projectType, projectName, workDone, task, helpTaken, status } = req.body;
+  const { username, name, projectType, projectName, workDone, task, helpTaken, status, date } = req.body;
   const timestamp = new Date().toISOString();
 
   db.get("SELECT type FROM users WHERE username = ?", [username], (err, row) => {
@@ -116,14 +115,14 @@ app.post("/work-update", (req, res) => {
       (username, name, userType, date, projectType, projectName, workDone, task, helpTaken, status, timestamp)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
-    stmt.run(username, name, userType, req.body.date, projectType, projectName, workDone, task, helpTaken, status, timestamp, function(err) {
+    stmt.run(username, name, userType, date, projectType, projectName, workDone, task, helpTaken, status, timestamp, function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true, id: this.lastID });
     });
   });
 });
 
-// Get work updates by username
+// Get all work updates for a user
 app.get("/work-updates/:username", (req, res) => {
   const username = req.params.username;
   db.all("SELECT * FROM work_updates WHERE username = ? ORDER BY timestamp DESC", [username], (err, rows) => {
@@ -132,7 +131,7 @@ app.get("/work-updates/:username", (req, res) => {
   });
 });
 
-// Delete update
+// Delete work update
 app.delete("/work-update/:id", (req, res) => {
   const { id } = req.params;
   db.run("DELETE FROM work_updates WHERE id = ?", [id], function(err) {
@@ -142,7 +141,7 @@ app.delete("/work-update/:id", (req, res) => {
   });
 });
 
-// Admin
+// Admin endpoints
 app.get("/all-work-updates", (req, res) => {
   db.all("SELECT * FROM work_updates ORDER BY timestamp DESC", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });

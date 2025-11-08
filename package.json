@@ -1,18 +1,14 @@
 {
   "name": "work-management-backend",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "api/index.js",
   "scripts": {
-  "build": "if [ \"$RENDER\" = \"true\" ]; then npm rebuild sqlite3 --build-from-source; else echo 'Skipping sqlite3 rebuild locally'; fi",
-  "start": "node server.js"
-},
-  "dependencies": {
-    "express": "^5.1.0",
-    "cors": "^2.8.5",
-    "sqlite3": "^5.1.7",
-    "bcrypt": "^5.1.1"
+    "start": "node api/index.js"
   },
-  "engines": {
-    "node": "20.x"
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "sqlite3": "^5.1.7"
   }
 }

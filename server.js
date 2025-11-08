@@ -31,21 +31,13 @@ db.serialize(() => {
   )`);
 
   // Add this after opening the database and before inserting users
-// db.run(`ALTER TABLE users ADD COLUMN type TEXT DEFAULT 'software'`, (err) => {
-//   if (err) {
-//     console.log("Column 'type' may already exist:", err.message);
-//   } else {
-//     console.log("Column 'type' added to 'users' table.");
-//   }
-// });
 db.run(`ALTER TABLE users ADD COLUMN type TEXT DEFAULT 'software'`, (err) => {
-  if (err && !err.message.includes("duplicate column name")) {
-    console.error(err.message);
-  } else if (!err) {
+  if (err) {
+    console.log("Column 'type' may already exist:", err.message);
+  } else {
     console.log("Column 'type' added to 'users' table.");
   }
 });
-
 
 const stmt = db.prepare(
   "INSERT OR REPLACE INTO users (username, password, role, name, type) VALUES (?, ?, ?, ?, ?)"

@@ -1,26 +1,22 @@
 
-// server.js
-import express from "express";
-import sqlite3 from "sqlite3";
-import cors from "cors";
-import bcrypt from "bcrypt";
+const express = require("express");
+const sqlite3 = require("sqlite3");
+const cors = require("cors");
+const bcrypt = require("bcrypt");
 
 const app = express();
 app.use(express.json());
 app.use(cors({
   origin: [
-    "http://localhost:3000", // for local dev
-    "https://https://work-frontend-ror6.vercel.app/" // replace with your actual deployed frontend URL
+    "http://localhost:3000",
+  "https://work-frontend-ror6.vercel.app"// replace with your actual deployed frontend URL
   ],
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
 
 // ----- SQLite Database -----
-const db = new sqlite3.Database("./database.db", (err) => {
-  if (err) console.error(err.message);
-  else console.log("Connected to SQLite database.");
-});
+const db = new sqlite3.Database(':memory:');
 
 // ----- Helper -----
 const hashPassword = (plain) => bcrypt.hashSync(plain, 10);
@@ -232,5 +228,5 @@ app.get("/.well-known/appspecific/com.chrome.devtools.json", (req, res) => {
 });
 
 // ----- Start Server -----
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
